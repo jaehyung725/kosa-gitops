@@ -1,0 +1,21 @@
+###############################################################################
+# LoadBalancer 타입 — MetalLB가 172.16.23.100~150 풀에서 IP 자동 할당.
+# 사용자는 그 IP로 브라우저 접속.
+###############################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: ticket-app
+  namespace: kosa-tickets
+  labels:
+    app: ticket-app
+spec:
+  type: LoadBalancer
+  selector:
+    app: ticket-app
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8000
+      protocol: TCP

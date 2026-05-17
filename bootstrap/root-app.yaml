@@ -1,0 +1,38 @@
+###############################################################################
+# root-app.yaml — App-of-Apps Pattern
+#
+# 이 Application 하나만 ArgoCD에 등록하면 apps/ 폴더의 모든 yaml을 자동 sync.
+# 즉, apps/ 폴더에 새 *.yaml 추가 → git push → ArgoCD가 자동 발견 + apply.
+#
+# 최초 1회 적용:
+#   kubectl apply -f bootstrap/root-app.yaml
+#
+# 이후엔 다른 모든 변경이 git push로 처리됨.
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: root-app
+  namespace: argocd
+  # 운영자가 ArgoCD UI에서 실수로 삭제 못 하게 보호
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # repo 만들고 push 후 이 URL 그대로
+    repoURL: https://github.com/KosaCloudTeam2/kosa-gitops.git
+    targetRevision: main
+    path: apps                # apps/ 폴더 안의 모든 yaml을 K8s에 apply
+    directory:
+      recurse: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true             # apps/에서 yaml 삭제하면 K8s에서도 삭제
+      selfHeal: true          # K8s 상태가 yaml과 다르면 yaml 기준으로 되돌림
+    syncOptions:
+      - CreateNamespace=true

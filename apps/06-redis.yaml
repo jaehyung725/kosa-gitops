@@ -1,0 +1,65 @@
+###############################################################################
+# 06-redis.yaml
+#
+# Redis Sentinel — HA Redis (master + 2 replica + sentinel sidecar)
+# - PVC는 team2-rbd-block
+# - Prometheus ServiceMonitor 자동 활성화 (kube-prom이 자동 scrape)
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: redis
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://charts.bitnami.com/bitnami
+    chart: redis
+    targetRevision: 19.5.0
+    helm:
+      releaseName: kosa-redis
+      values: |
+        architecture: replication
+        auth:
+          enabled: true
+          password: "kosa1004"
+
+        sentinel:
+          enabled: true
+          quorum: 2
+
+        master:
+          persistence:
+            enabled: true
+            storageClass: team2-rbd-block
+            size: 2Gi
+          resources:
+            requests: { cpu: 100m, memory: 200Mi }
+
+        replica:
+          replicaCount: 2
+          persistence:
+            enabled: true
+            storageClass: team2-rbd-block
+            size: 2Gi
+          resources:
+            requests: { cpu: 100m, memory: 200Mi }
+
+        metrics:
+          enabled: true
+          serviceMonitor:
+            enabled: true
+            namespace: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: redis
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,35 @@
+###############################################################################
+# 07-ticket-app.yaml
+#
+# 좌석 예약 시연 앱 (FastAPI + HTML).
+# - manifests/ticket-app/ 의 yaml들 모두 apply
+# - GHCR private image 사용 — imagePullSecret 별도 필요할 수 있음
+# - HPA로 자동 스케일링
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticket-app
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # PXC가 준비된 후에 sync (그래야 DB 연결 됨)
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/KosaCloudTeam2/kosa-gitops.git
+    targetRevision: main
+    path: manifests/ticket-app
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kosa-tickets
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

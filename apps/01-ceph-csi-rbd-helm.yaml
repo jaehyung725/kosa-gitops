@@ -1,0 +1,49 @@
+###############################################################################
+# 01-ceph-csi-rbd-helm.yaml
+#
+# Ceph CSI RBD 드라이버 Helm 설치.
+# - Helm chart는 외부 ceph-csi repo에서 끌어옴
+# - Secret + StorageClass는 별도 Application(02)에서 관리
+# - 차트 안 ConfigMap에 ceph fsid + mon IPs 박힘
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ceph-csi-rbd-helm
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://ceph.github.io/csi-charts
+    chart: ceph-csi-rbd
+    targetRevision: 3.10.2
+    helm:
+      releaseName: ceph-csi-rbd
+      values: |
+        csiConfig:
+          - clusterID: "861f6095-c334-413a-95a0-04e197f430c2"
+            monitors:
+              - "10.10.10.11:6789"
+              - "10.10.10.12:6789"
+              - "10.10.10.13:6789"
+              - "10.10.10.14:6789"
+        provisioner:
+          replicaCount: 3
+        # Secret과 StorageClass는 02-ceph-csi-rbd-config에서 직접 생성
+        storageClass:
+          create: false
+        secret:
+          create: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ceph-csi-rbd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,0 +1,31 @@
+###############################################################################
+# 02-ceph-csi-rbd-config.yaml
+#
+# ceph-csi-rbd가 사용할 Secret + StorageClass.
+# - Helm 차트는 generic하니 우리 환경 specific한 값은 별도 manifest로
+# - 함정: ceph-csi는 4 곳에서 Secret 참조 (provisioner/expand/node-stage)
+#   모두 동일 secret 가리켜야 함
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ceph-csi-rbd-config
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/KosaCloudTeam2/kosa-gitops.git
+    targetRevision: main
+    path: manifests/ceph-csi-rbd-config
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ceph-csi-rbd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

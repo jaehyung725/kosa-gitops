@@ -1,0 +1,41 @@
+###############################################################################
+# 04-pxc-cluster.yaml
+#
+# Percona XtraDB Cluster 인스턴스 (PerconaXtraDBCluster CR).
+# - manifests/pxc/ 의 yaml들: namespace, secret, PXC CR
+# - Operator(03)가 먼저 깔려야 CRD가 존재해서 sync 가능
+# - sync-wave로 순서 보장
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pxc-cluster
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # sync-wave: 03(operator)이 끝난 다음 04(이거)가 sync
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/KosaCloudTeam2/kosa-gitops.git
+    targetRevision: main
+    path: manifests/pxc
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pii-protected
+  syncPolicy:
+    automated:
+      prune: false             # PXC는 잘못 prune되면 데이터 손실 → 수동 제어
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

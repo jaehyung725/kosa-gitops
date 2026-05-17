@@ -1,0 +1,49 @@
+###############################################################################
+# HorizontalPodAutoscaler — 부하 시 자동 스케일링.
+# - CPU 50% / Memory 70% 중 먼저 도달하는 거 트리거
+# - 2 ~ 10 replicas 사이
+# - scaleUp 빠르게, scaleDown 보수적으로 (튕김 방지)
+###############################################################################
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ticket-app
+  namespace: kosa-tickets
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ticket-app
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 50
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30      # 30초간 평균 보고 결정 (튕김 방지)
+      policies:
+        - type: Percent
+          value: 100                       # 한 번에 최대 2배까지
+          periodSeconds: 30
+        - type: Pods
+          value: 4                         # 또는 한 번에 최대 4개 추가
+          periodSeconds: 30
+      selectPolicy: Max
+    scaleDown:
+      stabilizationWindowSeconds: 300     # 5분 평균 후 결정 (보수적)
+      policies:
+        - type: Percent
+          value: 25                        # 한 번에 25%씩만 감소
+          periodSeconds: 60

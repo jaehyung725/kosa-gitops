@@ -1,0 +1,83 @@
+###############################################################################
+# 05-monitoring.yaml
+#
+# kube-prometheus-stack — Prometheus + Grafana + Alertmanager + node-exporter +
+# kube-state-metrics 한 방에.
+# - Grafana는 LoadBalancer로 외부 노출
+# - PVC들은 team2-rbd-block 사용
+# - 차트 안 ServiceMonitor가 자동으로 우리 다른 워크로드 메트릭 수집
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 58.0.0
+    helm:
+      releaseName: kube-prom
+      values: |
+        prometheus:
+          prometheusSpec:
+            retention: 7d
+            resources:
+              requests: { cpu: 200m, memory: 400Mi }
+              limits:   { cpu: 1000m, memory: 1Gi }
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: team2-rbd-block
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 10Gi
+
+        grafana:
+          adminPassword: kosa1004
+          service:
+            type: LoadBalancer
+            port: 80
+          persistence:
+            enabled: true
+            storageClassName: team2-rbd-block
+            size: 2Gi
+          resources:
+            requests: { cpu: 100m, memory: 200Mi }
+          # 기본 대시보드 자동 import
+          defaultDashboardsEnabled: true
+
+        alertmanager:
+          alertmanagerSpec:
+            storage:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: team2-rbd-block
+                  accessModes: [ReadWriteOnce]
+                  resources:
+                    requests:
+                      storage: 1Gi
+
+        # 우리 외부 etcd는 K8s 안에 없음 — host metric은 node-exporter로 충분
+        kubeEtcd:
+          enabled: true
+        kubeControllerManager:
+          enabled: true
+        kubeScheduler:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

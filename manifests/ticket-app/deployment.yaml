@@ -1,0 +1,66 @@
+###############################################################################
+# ticket-app Deployment.
+# - FastAPI 앱 (좌석 100개 grid)
+# - DB 연결 정보는 Secret에서 envFrom
+# - replica 2개 시작, HPA가 부하 따라 2~10 조정
+###############################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ticket-app
+  namespace: kosa-tickets
+  labels:
+    app: ticket-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ticket-app
+  template:
+    metadata:
+      labels:
+        app: ticket-app
+    spec:
+      # Private GHCR이면 imagePullSecret 필요 — 같은 namespace에 secret 'ghcr-cred' 생성 후 활성화
+      # imagePullSecrets:
+      #   - name: ghcr-cred
+      containers:
+        - name: app
+          image: ghcr.io/kosacloudteam2/kosa-tickets:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - secretRef:
+                name: ticket-db-credentials
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8000
+            initialDelaySeconds: 15
+            periodSeconds: 20
+      # Pod을 워커 노드에 분산 (단일 노드 다운 시에도 일부 살아남)
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app: ticket-app
+                topologyKey: kubernetes.io/hostname

@@ -1,0 +1,48 @@
+###############################################################################
+# 03-percona-operator.yaml
+#
+# Percona XtraDB Cluster Operator (공식 Helm chart 사용 — bundle.yaml 대안)
+# - WATCH_NAMESPACE="" → cluster-wide mode (다른 namespace의 CR도 reconcile)
+# - 자동으로 ClusterRole + ClusterRoleBinding 생성됨 (RBAC 별도 작업 불필요)
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: percona-operator
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://percona.github.io/percona-helm-charts
+    chart: pxc-operator
+    targetRevision: 1.14.3
+    helm:
+      releaseName: percona-operator
+      values: |
+        # cluster-wide watch — pii-protected namespace의 PXC CR도 reconcile
+        watchAllNamespaces: true
+        # 또는 특정 ns만: watchNamespace: "pii-protected"
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 200Mi
+          limits:
+            cpu: 500m
+            memory: 500Mi
+        # CRD는 chart가 자동 설치
+        crds:
+          create: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pxc-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

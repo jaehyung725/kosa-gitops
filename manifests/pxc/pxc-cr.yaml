@@ -1,0 +1,69 @@
+###############################################################################
+# PerconaXtraDBCluster — kosa-pxc
+#
+# Operator(03)가 이 CR을 읽고 자동으로:
+#  - StatefulSet 3개 (PXC pxc-0,1,2)
+#  - StatefulSet 2개 (ProxySQL proxysql-0,1)
+#  - Service (clusterIP + headless)
+#  - PVC (ceph-csi가 team2-rbd-block에서 RBD 이미지 생성)
+#  - 페일오버 자동 복구
+#
+# 의존성:
+#  - 03-percona-operator (CRD 제공)
+#  - 02-ceph-csi-rbd-config (StorageClass)
+###############################################################################
+
+apiVersion: pxc.percona.com/v1
+kind: PerconaXtraDBCluster
+metadata:
+  name: kosa-pxc
+  namespace: pii-protected
+  finalizers:
+    - delete-pxc-pods-in-order
+spec:
+  crVersion: 1.14.0
+  secretsName: kosa-pxc-secrets
+
+  pxc:
+    size: 3
+    image: percona/percona-xtradb-cluster:8.0.36-28.1
+    resources:
+      requests:
+        cpu: 600m
+        memory: 1Gi
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+    volumeSpec:
+      persistentVolumeClaim:
+        storageClassName: team2-rbd-block
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 50Gi
+    affinity:
+      antiAffinityTopologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      maxUnavailable: 1
+
+  haproxy:
+    enabled: false              # ProxySQL 사용
+
+  proxysql:
+    enabled: true
+    size: 2
+    image: percona/proxysql2:2.5.5
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    volumeSpec:
+      persistentVolumeClaim:
+        storageClassName: team2-rbd-block
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 2Gi

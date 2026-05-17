@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pii-protected
+  labels:
+    # PII 보호 — egress 차단 NetworkPolicy 적용 예정
+    pod-security.kubernetes.io/enforce: baseline

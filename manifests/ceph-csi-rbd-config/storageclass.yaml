@@ -1,0 +1,37 @@
+###############################################################################
+# StorageClass — team2-rbd-block
+#
+# K8s가 RBD PVC 생성 요청 받으면 ceph-csi 드라이버를 통해 Ceph pool에
+# RBD 이미지 만들어서 PV로 노출.
+#
+# 4가지 secret 참조: 함정 #2 (Phase 5 inventory) 방지.
+# - provisioner-secret: 이미지 생성/삭제
+# - controller-expand-secret: PVC resize
+# - node-stage-secret: 노드에서 mount 준비
+###############################################################################
+
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: team2-rbd-block
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+provisioner: rbd.csi.ceph.com
+parameters:
+  clusterID: "861f6095-c334-413a-95a0-04e197f430c2"
+  pool: team2-k8s-pvc-rbd
+  imageFeatures: layering
+  csi.storage.k8s.io/fstype: ext4
+
+  csi.storage.k8s.io/provisioner-secret-name: team2-rbd-csi-secret
+  csi.storage.k8s.io/provisioner-secret-namespace: ceph-csi-rbd
+
+  csi.storage.k8s.io/controller-expand-secret-name: team2-rbd-csi-secret
+  csi.storage.k8s.io/controller-expand-secret-namespace: ceph-csi-rbd
+
+  csi.storage.k8s.io/node-stage-secret-name: team2-rbd-csi-secret
+  csi.storage.k8s.io/node-stage-secret-namespace: ceph-csi-rbd
+
+reclaimPolicy: Delete
+allowVolumeExpansion: true
+volumeBindingMode: Immediate
